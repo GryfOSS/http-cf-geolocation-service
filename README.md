@@ -287,7 +287,7 @@ $this->app->singleton(CFGeolocationService::class, function ($app) {
 
 ### GitHub Actions CI/CD
 
-- **Multi-PHP Testing**: PHP 8.1, 8.2, 8.3, 8.4
+- **Multi-PHP Testing**: 8.2, 8.3, 8.4
 - **Automated Database Download**: Fresh GeoLite2 database for each test run
 - **100% Coverage Enforcement**: Builds fail if coverage drops below 100%
 - **Cross-Platform**: Ubuntu latest with comprehensive test matrix
