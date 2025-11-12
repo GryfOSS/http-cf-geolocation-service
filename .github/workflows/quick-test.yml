@@ -1,0 +1,55 @@
+name: Quick Tests
+
+on:
+  push:
+    branches: [ '*' ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'LICENSE'
+
+jobs:
+  quick-test:
+    name: Quick Test Suite
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP 8.4
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: 8.4
+        extensions: mbstring, xml, xdebug
+        coverage: xdebug
+
+    - name: Install dependencies
+      run: |
+        composer install --no-progress --prefer-dist --optimize-autoloader --no-dev
+        composer install --no-progress --prefer-dist --optimize-autoloader  # Install dev dependencies
+
+    - name: Download GeoLite2 database
+      run: ./pull-free-db.sh
+
+    - name: Run tests with coverage check
+      run: |
+        echo "🧪 Running tests with coverage verification..."
+
+        # Run tests and capture coverage output
+        COVERAGE_OUTPUT=$(XDEBUG_MODE=coverage ./vendor/bin/phpunit --coverage-text --colors=never 2>&1)
+        echo "$COVERAGE_OUTPUT"
+
+        # Check for 100% in all categories
+        LINES_100=$(echo "$COVERAGE_OUTPUT" | grep -E "Lines:\s+100\.00%" | wc -l)
+        METHODS_100=$(echo "$COVERAGE_OUTPUT" | grep -E "Methods:\s+100\.00%" | wc -l)
+        CLASSES_100=$(echo "$COVERAGE_OUTPUT" | grep -E "Classes:\s+100\.00%" | wc -l)
+
+        if [ "$LINES_100" -gt 0 ] && [ "$METHODS_100" -gt 0 ] && [ "$CLASSES_100" -gt 0 ]; then
+          echo "✅ 100% coverage confirmed in all categories!"
+        else
+          echo "❌ 100% coverage requirement not met!"
+          echo "Coverage summary:"
+          echo "$COVERAGE_OUTPUT" | grep -E "(Lines|Methods|Classes):"
+          exit 1
+        fi

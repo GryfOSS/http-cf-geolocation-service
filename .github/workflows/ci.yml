@@ -1,0 +1,113 @@
+name: CI Tests with Coverage
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php-version }} Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        php-version: ['8.1', '8.2', '8.3', '8.4']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ matrix.php-version }}
+        extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_mysql, dom, filter, gd, iconv, json, mbstring, xdebug
+        ini-values: memory_limit=-1
+        coverage: xdebug
+
+    - name: Get composer cache directory
+      id: composer-cache
+      run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+    - name: Cache composer dependencies
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+        restore-keys: ${{ runner.os }}-composer-
+
+    - name: Install dependencies
+      run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+    - name: Download GeoLite2 database
+      run: |
+        echo "📥 Downloading free GeoLite2 database..."
+        ./pull-free-db.sh
+
+    - name: Verify database download
+      run: |
+        echo "🔍 Verifying database file..."
+        ls -la tests/fixtures/
+        if [ -f "tests/fixtures/GeoLite2-Country.mmdb" ]; then
+          echo "✅ Database file exists"
+          file tests/fixtures/GeoLite2-Country.mmdb
+        else
+          echo "❌ Database file missing!"
+          exit 1
+        fi
+
+    - name: Run unit tests
+      run: |
+        echo "🧪 Running unit tests..."
+        ./vendor/bin/phpunit --testdox
+
+    - name: Generate coverage report
+      run: |
+        echo "📊 Generating code coverage report..."
+        ./vendor/bin/phpunit --coverage-text --coverage-html coverage-report
+
+    - name: Check 100% coverage requirement
+      run: |
+        echo "🎯 Checking coverage requirements..."
+
+        # Run coverage test with Xdebug
+        COVERAGE_OUTPUT=$(XDEBUG_MODE=coverage ./vendor/bin/phpunit --coverage-text --colors=never 2>&1)
+        echo "$COVERAGE_OUTPUT"
+
+        # Check for 100% coverage in all categories
+        LINES_100=$(echo "$COVERAGE_OUTPUT" | grep -E "Lines:\s+100\.00%" | wc -l)
+        METHODS_100=$(echo "$COVERAGE_OUTPUT" | grep -E "Methods:\s+100\.00%" | wc -l)
+        CLASSES_100=$(echo "$COVERAGE_OUTPUT" | grep -E "Classes:\s+100\.00%" | wc -l)
+
+        echo "📊 Coverage check results:"
+        echo "   Lines: $(echo "$COVERAGE_OUTPUT" | grep -E "Lines:" | head -1)"
+        echo "   Methods: $(echo "$COVERAGE_OUTPUT" | grep -E "Methods:" | head -1)"
+        echo "   Classes: $(echo "$COVERAGE_OUTPUT" | grep -E "Classes:" | head -1)"
+
+        if [ "$LINES_100" -gt 0 ] && [ "$METHODS_100" -gt 0 ] && [ "$CLASSES_100" -gt 0 ]; then
+          echo "✅ Perfect! 100% code coverage achieved in all categories!"
+        else
+          echo "❌ 100% coverage requirement not met!"
+          echo ""
+          echo "📋 Full coverage report:"
+          echo "$COVERAGE_OUTPUT"
+          exit 1
+        fi
+
+    - name: Upload coverage artifacts
+      uses: actions/upload-artifact@v4
+      if: matrix.php-version == '8.4'  # Only upload for latest PHP version
+      with:
+        name: coverage-report
+        path: coverage-report/
+        retention-days: 30
+
+    - name: Summary
+      if: success()
+      run: |
+        echo "🎉 All tests passed with 100% coverage!"
+        echo "✅ PHP ${{ matrix.php-version }} compatibility confirmed"
+        echo "✅ All unit tests passing"
+        echo "✅ 100% code coverage maintained"
