@@ -10,7 +10,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "GryfOSS\\Geolocation\\Tests\\": "tests/"
+            "GryfOSS\\Geolocation\\Tests\\": "tests/",
+            "GryfOSS\\Geolocation\\Behat\\": "features/bootstrap/"
         }
     },
     "authors": [
@@ -26,6 +27,7 @@
         "geoip2/geoip2": "^3.2"
     },
     "require-dev": {
-        "phpunit/phpunit": "^11.0"
+        "phpunit/phpunit": "^11.0",
+        "behat/behat": "^3.26"
     }
 }

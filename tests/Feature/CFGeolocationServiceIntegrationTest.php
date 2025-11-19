@@ -81,6 +81,31 @@ class CFGeolocationServiceIntegrationTest extends TestCase
         $this->assertEquals('CA', $country);
     }
 
+    public function testDebugModeOverridesRequestData(): void
+    {
+        $this->service->setDebugMode(true, '203.0.113.77', 'NL');
+
+        $request = new Request([], [], [], [], [], ['REMOTE_ADDR' => '198.51.100.1']);
+        $request->headers->set('CF-Connecting-IP', '8.8.8.8');
+        $request->headers->set('CF-IPCountry', 'US');
+
+        $this->assertEquals('203.0.113.77', $this->service->getIp($request));
+        $this->assertEquals('NL', $this->service->getCountryCode($request));
+    }
+
+    public function testDisablingDebugModeRestoresDetection(): void
+    {
+        $this->service->setDebugMode(true, '203.0.113.77', 'NL');
+        $this->service->setDebugMode(false);
+
+        $request = new Request();
+        $request->headers->set('CF-Connecting-IP', '9.9.9.9');
+        $request->headers->set('CF-IPCountry', 'FR');
+
+        $this->assertEquals('9.9.9.9', $this->service->getIp($request));
+        $this->assertEquals('FR', $this->service->getCountryCode($request));
+    }
+
     public function testEdgeCaseCountryCodes(): void
     {
         // Test valid country codes that match the pattern /^[A-Z]{2}$/

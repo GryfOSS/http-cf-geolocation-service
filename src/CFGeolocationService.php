@@ -31,6 +31,15 @@ class CFGeolocationService
      */
     protected const CF_COUNTRY_HEADER = 'CF-IPCountry';
 
+    /** @var bool Flag indicating if debug mode overrides should be used */
+    protected bool $debugModeEnabled = false;
+
+    /** @var string|null Fake IP address returned when debug mode is enabled */
+    protected ?string $debugIp = null;
+
+    /** @var string|null Fake country code returned when debug mode is enabled */
+    protected ?string $debugCountryCode = null;
+
     /**
      * Initialize the geolocation service with a GeoIP database
      *
@@ -57,6 +66,10 @@ class CFGeolocationService
      */
     public function getIp(Request $request): ?string
     {
+        if ($this->debugModeEnabled) {
+            return $this->debugIp;
+        }
+
         // Extract the IP from Cloudflare's CF-Connecting-IP header
         $cfIp = $request->headers->get(self::CF_IP_HEADER);
 
@@ -84,6 +97,10 @@ class CFGeolocationService
      */
     public function getCountryCode(Request $request): ?string
     {
+        if ($this->debugModeEnabled) {
+            return $this->debugCountryCode;
+        }
+
         // Extract country code from Cloudflare's CF-IPCountry header
         $cfCountry = $request->headers->get(self::CF_COUNTRY_HEADER);
 
@@ -107,5 +124,50 @@ class CFGeolocationService
         // Perform country lookup and extract ISO code
         $country = $reader->country($ip)->country;
         return strtoupper($country->isoCode);
+    }
+
+    /**
+     * Configure debug mode and optional override values.
+     */
+    public function setDebugMode(bool $enabled, ?string $ip = null, ?string $countryCode = null): void
+    {
+        if ($enabled) {
+            if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+                throw new \InvalidArgumentException('Invalid debug IP address.');
+            }
+
+            $countryCode = strtoupper((string) $countryCode);
+
+            if (!preg_match('/^[A-Z]{2}$/', $countryCode)) {
+                throw new \InvalidArgumentException('Invalid debug country code. Expected ISO 3166-1 alpha-2.');
+            }
+
+            $this->debugModeEnabled = true;
+            $this->debugIp = $ip;
+            $this->debugCountryCode = $countryCode;
+            return;
+        }
+
+        $this->debugModeEnabled = false;
+        $this->debugIp = null;
+        $this->debugCountryCode = null;
+    }
+
+    /** Determine if debug mode is active. */
+    public function isDebugModeEnabled(): bool
+    {
+        return $this->debugModeEnabled;
+    }
+
+    /** Return the forced debug IP if set. */
+    public function getDebugModeIp(): ?string
+    {
+        return $this->debugIp;
+    }
+
+    /** Return the forced debug country code if set. */
+    public function getDebugModeCountryCode(): ?string
+    {
+        return $this->debugCountryCode;
     }
 }

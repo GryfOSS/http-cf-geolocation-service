@@ -1,0 +1,10 @@
+default:
+  suites:
+    default:
+      paths:
+        features: features
+      contexts:
+        - GryfOSS\Geolocation\Behat\FeatureContext
+  gherkin:
+    filters:
+      tags: ~@wip

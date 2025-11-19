@@ -279,4 +279,100 @@ class CFGeolocationServiceTest extends TestCase
 
         $service->getCountryCode($request);
     }
+
+    public function testSetDebugModeOverridesResponses(): void
+    {
+        $service = new CFGeolocationService($this->validDatabasePath);
+        $service->setDebugMode(true, '203.0.113.10', 'pl');
+
+        $request = new Request();
+        $request->headers->set('CF-Connecting-IP', '8.8.8.8');
+        $request->headers->set('CF-IPCountry', 'US');
+
+        $this->assertEquals('203.0.113.10', $service->getIp($request));
+        $this->assertEquals('PL', $service->getCountryCode($request));
+        $this->assertTrue($service->isDebugModeEnabled());
+        $this->assertEquals('203.0.113.10', $service->getDebugModeIp());
+        $this->assertEquals('PL', $service->getDebugModeCountryCode());
+    }
+
+    public function testDebugModeIgnoresRequestData(): void
+    {
+        $service = new CFGeolocationService($this->validDatabasePath);
+        $service->setDebugMode(true, '198.51.100.5', 'gb');
+
+        $request = new Request([], [], [], [], [], ['REMOTE_ADDR' => '10.0.0.1']);
+        $request->headers->set('CF-Connecting-IP', 'invalid');
+        $request->headers->set('CF-IPCountry', 'X1');
+
+        $this->assertEquals('198.51.100.5', $service->getIp($request));
+        $this->assertEquals('GB', $service->getCountryCode($request));
+    }
+
+    public function testDisablingDebugModeRestoresNormalBehavior(): void
+    {
+        $service = new CFGeolocationService($this->validDatabasePath);
+        $service->setDebugMode(true, '203.0.113.10', 'PL');
+        $service->setDebugMode(false);
+
+        $request = new Request();
+        $request->headers->set('CF-Connecting-IP', '8.8.4.4');
+        $request->headers->set('CF-IPCountry', 'US');
+
+        $this->assertEquals('8.8.4.4', $service->getIp($request));
+        $this->assertEquals('US', $service->getCountryCode($request));
+        $this->assertFalse($service->isDebugModeEnabled());
+        $this->assertNull($service->getDebugModeIp());
+        $this->assertNull($service->getDebugModeCountryCode());
+    }
+
+    public function testSetDebugModeValidatesIp(): void
+    {
+        $service = new CFGeolocationService($this->validDatabasePath);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid debug IP address.');
+
+        $service->setDebugMode(true, 'not-an-ip', 'US');
+    }
+
+    public function testSetDebugModeValidatesCountry(): void
+    {
+        $service = new CFGeolocationService($this->validDatabasePath);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid debug country code. Expected ISO 3166-1 alpha-2.');
+
+        $service->setDebugMode(true, '203.0.113.10', 'USA');
+    }
+
+    public function testSetDebugModeWithIpv6(): void
+    {
+        $service = new CFGeolocationService($this->validDatabasePath);
+        $ipv6 = '2001:db8::1';
+
+        $service->setDebugMode(true, $ipv6, 'DE');
+
+        $request = new Request();
+
+        $this->assertEquals($ipv6, $service->getIp($request));
+        $this->assertEquals('DE', $service->getCountryCode($request));
+    }
+
+    public function testSetDebugModeDisabledIgnoresOptionalArgs(): void
+    {
+        $service = new CFGeolocationService($this->validDatabasePath);
+
+        $service->setDebugMode(false, '198.51.100.5', 'GB');
+
+        $request = new Request();
+        $request->headers->set('CF-Connecting-IP', '8.8.8.8');
+        $request->headers->set('CF-IPCountry', 'US');
+
+        $this->assertEquals('8.8.8.8', $service->getIp($request));
+        $this->assertEquals('US', $service->getCountryCode($request));
+        $this->assertFalse($service->isDebugModeEnabled());
+        $this->assertNull($service->getDebugModeIp());
+        $this->assertNull($service->getDebugModeCountryCode());
+    }
 }

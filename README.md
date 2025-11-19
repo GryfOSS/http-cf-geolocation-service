@@ -107,6 +107,21 @@ $countryCode = $service->getCountryCode($request);
 // Returns country code based on IP geolocation
 ```
 
+### Debug Mode for Local Development
+
+When developing on localhost or behind corporate VPNs, Cloudflare headers might be unavailable. Enable debug mode to short-circuit lookups and return deterministic values without changing your stack:
+
+```php
+$service->setDebugMode(true, '203.0.113.77', 'PL'); // Use fake IP + ISO code
+
+$clientIp = $service->getIp($request);      // "203.0.113.77"
+$countryCode = $service->getCountryCode($request); // "PL"
+
+$service->setDebugMode(false); // Revert to normal detection
+```
+
+Use `isDebugModeEnabled()`, `getDebugModeIp()`, and `getDebugModeCountryCode()` to inspect the current state. Debug mode strictly validates both the IP address and ISO 3166-1 alpha-2 country code to avoid accidental misuse.
+
 ### Error Handling
 
 ```php
@@ -166,6 +181,9 @@ composer install
 
 # Run complete test suite
 ./vendor/bin/phpunit
+
+# Run Behat functional specs (debug mode scenarios)
+./vendor/bin/behat
 
 # Run tests with coverage
 XDEBUG_MODE=coverage ./vendor/bin/phpunit --coverage-text

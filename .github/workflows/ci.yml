@@ -63,6 +63,11 @@ jobs:
         echo "🧪 Running unit tests..."
         ./vendor/bin/phpunit --testdox
 
+    - name: Run Behat functional specs
+      run: |
+        echo "🎭 Running Behat scenarios..."
+        ./vendor/bin/behat
+
     - name: Generate coverage report
       run: |
         echo "📊 Generating code coverage report..."
